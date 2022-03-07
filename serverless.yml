@@ -1,0 +1,89 @@
+service: rally-app
+
+provider:
+  name: aws
+  runtime: nodejs14.x
+  stage: ${opt:stage, 'dev'}
+  region: ${opt:region, 'us-west-2'}
+  timeout: 10
+  memorySize: 256
+  logRetentionInDays: 14
+plugins:
+  - serverless-offline
+  - serverless-dynamodb-local
+resources:
+  Resources:
+    messagesTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: Messages
+        AttributeDefinitions:
+          - AttributeName: pk
+            AttributeType: S
+          - AttributeName: sk
+            AttributeType: S
+          - AttributeName: workspace
+            AttributeType: S
+        KeySchema:
+          - AttributeName: pk
+            KeyType: HASH
+          - AttributeName: sk
+            KeyType: RANGE
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        GlobalSecondaryIndexes:
+          - IndexName: workspaceIndex
+            KeySchema:
+              - AttributeName: workspace
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+            ProvisionedThroughput:
+              ReadCapacityUnits: 1
+              WriteCapacityUnits: 1
+    oAuthTable :
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: oauthTokens
+        AttributeDefinitions:
+          - AttributeName: teamId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: teamId
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+custom:
+  dynamodb:
+    # If you only want to use DynamoDB Local in some stages, declare them here
+    stages:
+      - dev
+    start:
+      port: 8000
+      inMemory: true
+      heapInitial: 200m
+      heapMax: 1g
+      migrate: true
+      seed: true
+      convertEmptyValues: true
+functions:
+  bot:
+    handler: handler.handler
+    events:
+      - http:
+          path: bot
+          method: post
+  authorize:
+    handler: handler.authorize
+    events:
+      - http:
+          path: authorize
+          method: get
+  listMessage:
+    handler: handler.listMessage
+    events:
+      - http:
+          path: listMessage
+          method: get
